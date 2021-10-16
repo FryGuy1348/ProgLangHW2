@@ -1,0 +1,8 @@
+d uan://localhost:3030/ds rmsp://localhost:4041 
+f uan://localhost:3030/ds uan://localhost:3030/fs1 rmsp://localhost:4040
+f uan://localhost:3030/ds uan://localhost:3030/fs2 rmsp://localhost:4041
+f uan://localhost:3030/ds uan://localhost:3030/fs3 rmsp://localhost:4042
+c uan://localhost:3030/ds a.txt
+c uan://localhost:3030/ds b.txt
+g uan://localhost:3030/ds a.txt
+g uan://localhost:3030/ds b.txt

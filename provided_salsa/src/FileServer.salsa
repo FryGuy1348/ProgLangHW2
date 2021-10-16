@@ -1,0 +1,35 @@
+module src;
+import java.io.*;
+import java.util.*;
+
+
+/*
+
+  A server designed to store and retrieve files.
+
+  You may adjust function signatures to your needs, 
+  and are encouraged to add helper functions.
+
+*/
+behavior FileServer {
+
+
+    int blockSize = 64;
+
+
+    /* Save some data to file
+     *
+     * Each file server will have its own
+     * directory.
+     */
+    /* You may pass and return any data you need. */
+    void store(String fileName, String contents) {
+    }
+
+
+    /* Retrieve some file block, possibly with order information */
+    /* You may pass and return any data you need. */
+    void retrieve(String fileName) {
+        // @currentContinuation;
+    }
+}

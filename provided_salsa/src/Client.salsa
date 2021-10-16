@@ -1,0 +1,53 @@
+module src;
+import java.util.*;
+import src.FileUtility;
+
+
+/*
+
+  A client that creates and interacts with directory
+  and file servers.  Loads instructions from a .script file.
+
+  You may adjust function signatures to your needs, 
+  and are encouraged to add helper functions.
+
+*/
+behavior Client {
+
+
+    int blockSize = 64;
+    FileUtility inputScript;
+
+
+    /* Your program's first input must be the path to the 
+     * input file it will execute (e.g. input/simple.script).
+     * Additional arguments will not be passed for tests.
+     */
+    void act( String[] args ) {
+        if (args.length != 1) {
+            standardOutput<-println( "Usage: java migration.Migrate  <commands.script>" );
+            return;
+        }
+        // example input / printing / output
+        inputScript = new FileUtility(args[0]);
+        
+        scanInput();
+    }
+
+    /* Reads each line of the input script and passes it to standard input.
+     * This occurs sequentially, so we know that each line will only be
+     * called when the called message is concluded.
+     * 
+     * Can be adapted to pass these lines to your helper functions.
+     */
+    void scanInput() {
+        String s = inputScript.nextLine();
+        if (s == null) {
+            return;
+        } else {
+            standardOutput <- println(s) @
+            scanInput();
+        }
+        
+    }
+}

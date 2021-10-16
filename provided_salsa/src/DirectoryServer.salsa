@@ -1,0 +1,47 @@
+module src;
+import java.util.Collections;
+
+
+/*
+
+  A server designed to divide files into blocks.
+  It will then distribute the blocks to file servers.
+  It can be queried for the locations of blocks of 
+  a file it's divided.
+
+  File servers are launched separately and then registered.
+
+  You may adjust function signatures to your needs, 
+  and are encouraged to add helper functions.
+
+*/
+behavior DirectoryServer {
+
+    
+    int blockSize = 64;
+
+
+    /* Take a file and save it to known file servers.
+     *
+     * To ensure this is deterministic, always save
+     * in round robin order. Start each new file 
+     * where you left off for previous files.
+     *
+     * When new file servers are added, sort them
+     * alphabetically and reset the round-robin
+     * routine. This doesn't load balance perfectly, 
+     * but its simple.
+     *
+     */
+    /* You may pass and return any data you need. */
+    void store(String fileName, String content) {
+    }
+
+
+    /* Given a file name, return the servers and blocks it's located on. */
+    /* You may pass and return any data you need. */
+    void retrieve() {
+        // @currentContinuation;
+    }
+
+}
