@@ -15,13 +15,18 @@
 
 % starts a directory service
 start_dir_service() ->
-	pass.
+	io:fwrite("~p~n", [file:make_dir("newdir")]).
 	% CODE THIS
+	% Create new directory/folder
+	% Use name "localhost"
+
 
 % starts a file server with the UAL of the Directory Service
 start_file_server(DirUAL) ->
 	pass.
 	% CODE THIS
+	% Create sub-directory under localhost folder (Create as actor, with UAL name)
+	% name is taken as input 
 
 % requests file information from the Directory Service (DirUAL) on File
 % then requests file parts from the locations retrieved from Dir Service
@@ -29,11 +34,17 @@ start_file_server(DirUAL) ->
 get(DirUAL, File) ->
 	pass.
 	% CODE THIS
+	% Check if downloads (directory/downloads) exists; if not, create it
+	% Takes file name as input
+	% Find each file part in individual servers
+	% Combines them and places in downloads folder
 
 % gives Directory Service (DirUAL) the name/contents of File to create
 create(DirUAL, File) ->
 	pass.
 	% CODE THIS
+	% Takes file from input folder.
+	% Split file into file parts and send them through the file servers in rotation
 
 % sends shutdown message to the Directory Service (DirUAL)
 quit(DirUAL) ->
@@ -43,3 +54,6 @@ quit(DirUAL) ->
 
 
 
+%Client: Specify file name, located in same directory. Server created in folder. Specify from this working directory, go and get file from here.
+%Salse - java, can use java objects
+%Erlang - more common, more support
