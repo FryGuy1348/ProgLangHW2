@@ -15,17 +15,18 @@
 
 % starts a directory service
 start_dir_service() ->
-	io:fwrite("~p~n", [file:make_dir("newdir")]).
+	pass.
+	Direct = spawn()
 	% CODE THIS
-	% Create new directory/folder
-	% Use name "localhost"
+	% Create new directory service as actor
+	% Use spawn in order to run stuff in the background.
 
 
 % starts a file server with the UAL of the Directory Service
 start_file_server(DirUAL) ->
 	pass.
 	% CODE THIS
-	% Create sub-directory under localhost folder (Create as actor, with UAL name)
+	% Create folder in server
 	% name is taken as input 
 
 % requests file information from the Directory Service (DirUAL) on File
