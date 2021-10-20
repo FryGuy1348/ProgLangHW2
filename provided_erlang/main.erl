@@ -23,7 +23,7 @@ start_dir_service() ->
 
 % starts a file server with the UAL of the Directory Service
 start_file_server(DirUAL) ->
-	io:fwrite("~p~n",[file:make_dir("newdir")]).
+	io:fwrite("~p~n",[file:make_dir("servers/newdir")]).
 	%FS = spawn(util, )
 	% CODE THIS
 	% Create folder in server
