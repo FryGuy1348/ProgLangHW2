@@ -24,7 +24,6 @@ start_dir_service() ->
 
 % starts a file server with the UAL of the Directory Service
 start_file_server(DirUAL) ->
-	io:fwrite("~p~n",[file:make_dir(string:concat("servers/", DirUAL))]),
 	FS = spawn(file_server_receiver()),
 	DS ! {addFile, FS}.
 	%FS = spawn(util, )
@@ -37,6 +36,8 @@ dir_service_receiver(LS) ->
 	receive
 		{addFile, FS} ->
 			append(FSList, FS),
+			%io:fwrite("~p~n",[file:make_dir(string:concat("servers/", DirUAL))]),
+			file:make_dir(string:concat("servers/fs", length(FSList))),
 			dir_service_receiver(FSList);
 		{g, Arg1, Arg2} ->
 			get(Arg1, Arg2),
@@ -45,14 +46,15 @@ dir_service_receiver(LS) ->
 			create(Arg1, Arg2),
 			dir_service_receiver(FSList);
 		{q} ->
-			quit()
+			quit(LS)
 	end.
 
 file_server_receiver() ->
-	receive
-		{q} ->
+	%receive
+		%{q} ->
 			%clear folders in servers
-		end.
+		%end.
+	pass.
 
 % requests file information from the Directory Service (DirUAL) on File
 % then requests file parts from the locations retrieved from Dir Service
