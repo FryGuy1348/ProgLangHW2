@@ -16,7 +16,7 @@
 
 % starts a directory service
 start_dir_service() ->
-	DS = spawn(dir_service_receiver()).
+	DS = spawn(dir_service_receiver([])).
 	% CODE THIS
 	% Create new directory service as actor
 	% Use spawn in order to run stuff in the background.
@@ -32,21 +32,27 @@ start_file_server(DirUAL) ->
 	% Create folder in server
 	% name is taken as input 
 
-dir_service_receiver() ->
-	FSList = FSList,
+dir_service_receiver(LS) ->
+	FSList = LS,
 	receive
 		{addFile, FS} ->
-			append(FSList, FS);
-		{g, File} ->
-			get();
-		{c, File} ->
-			create();
+			append(FSList, FS),
+			dir_service_receiver(FSList);
+		{g, Arg1, Arg2} ->
+			get(Arg1, Arg2),
+			dir_service_receiver(FSList);
+		{c, Arg1, Arg2} ->
+			create(Arg1, Arg2),
+			dir_service_receiver(FSList);
 		{q} ->
 			quit()
 	end.
 
 file_server_receiver() ->
-	pass.
+	receive
+		{q} ->
+			%clear folders in servers
+		end.
 
 % requests file information from the Directory Service (DirUAL) on File
 % then requests file parts from the locations retrieved from Dir Service
