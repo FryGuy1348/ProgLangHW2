@@ -16,7 +16,8 @@
 
 % starts a directory service
 start_dir_service() ->
-	DS = spawn(dir_service_receiver([])).
+	Pid = spawn(node(), fun() -> dir_service_receiver([]) end),
+	register(ta, Pid).
 	% CODE THIS
 	% Create new directory service as actor
 	% Use spawn in order to run stuff in the background.
@@ -24,9 +25,8 @@ start_dir_service() ->
 
 % starts a file server with the UAL of the Directory Service
 start_file_server(DirUAL) ->
-	FS = spawn(file_server_receiver()),
-	DS ! {addFile, FS}.
-	%FS = spawn(util, )
+	Pid2 = spawn(file_server_receiver()),
+	whereis(ta) ! {addFile, Pid2}.
 	% CODE THIS
 	% Create folder in server
 	% name is taken as input 
@@ -70,7 +70,9 @@ get(DirUAL, File) ->
 % gives Directory Service (DirUAL) the name/contents of File to create
 create(DirUAL, File) ->
 	FileStuff = readFile(File),
-	Step = 0.
+	Step = 0,
+	Index = 0.
+
 	%while(substrn(FileStuff,step,64)) ->
 
 
