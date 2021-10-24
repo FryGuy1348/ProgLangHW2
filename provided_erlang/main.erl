@@ -1,6 +1,8 @@
 -module(main).
 -import(util,[readFile/1,get_all_lines/1,saveFile/2]).
 -import(lists,[append/2]). 
+-import(string,[substr/3]). 
+-import(string,[len/1]). 
 % main functions
 -export([start_file_server/1, start_dir_service/0, get/2, create/2, quit/1]).
 
@@ -17,7 +19,7 @@
 % starts a directory service
 start_dir_service() ->
 	Pid = spawn(node(), fun() -> dir_service_receiver([]) end),
-	register(ta, Pid).
+	register(dr, Pid).
 	% CODE THIS
 	% Create new directory service as actor
 	% Use spawn in order to run stuff in the background.
@@ -26,7 +28,7 @@ start_dir_service() ->
 % starts a file server with the UAL of the Directory Service
 start_file_server(DirUAL) ->
 	Pid2 = spawn(file_server_receiver()),
-	whereis(ta) ! {addFile, Pid2}.
+	whereis(dr) ! {addFile, Pid2}.
 	% CODE THIS
 	% Create folder in server
 	% name is taken as input 
@@ -35,7 +37,7 @@ dir_service_receiver(LS) ->
 	FSList = LS,
 	receive
 		{addFile, FS} ->
-			append(FSList, FS),
+			FSList = append(FSList, FS),
 			%io:fwrite("~p~n",[file:make_dir(string:concat("servers/", DirUAL))]),
 			file:make_dir(string:concat("servers/fs", length(FSList))),
 			dir_service_receiver(FSList);
@@ -70,15 +72,63 @@ get(DirUAL, File) ->
 % gives Directory Service (DirUAL) the name/contents of File to create
 create(DirUAL, File) ->
 	FileStuff = readFile(File),
-	Step = 0,
-	Index = 0.
+	Pos = string:chr(File, $.),
+	Fad = string:substr(File, 0, Pos-1),
+	Step = 1,
+	Index = 1,
+	Len = len(FileStuff)/64,
+	FName = string:join("/servers/fs",Index),
+	while(Step < Len+1).
+	
+
+while(false) -> ok;
+while(Step < Len) ->
+	if 
+		is_dir(FName) ->
+			file:write_file(FName, substr(FileStuff, Step, 64));
+		true ->
+			Index = 1,
+			FName = string:join("/servers/fs",Index),
+			FName = string:join(FName, "/"),
+			FName = string:join(FName, Fad),
+			FName = string:join(FName, "_"),
+			FName = string:join(FName, Step/64),
+			FName = string:join(FName, ".txt"),
+			file:write_file(FName, [substr(FileStuff, Step, 64)])
+	end,
+	Step0 = Step,
+	Step = Step + 64,
+	Index = Index + 1,
+	FName = string:join("/servers/fs",Index),
+	if 
+		Step > Len+1 ->
+			if 
+			is_dir(FName) ->
+				FName = string:join("/servers/fs",Index),
+				FName = string:join(FName, "/"),
+				FName = string:join(FName, Fad),
+				FName = string:join(FName, "_"),
+				FName = string:join(FName, Step/64),
+				FName = string:join(FName, ".txt"),
+				file:write_file(FName, [substr(FileStuff, Step0, Step-Step0)]);
+			true ->
+				Index = 1,
+				FName = string:join("/servers/fs",Index),
+				FName = string:join(FName, "/"),
+				FName = string:join(FName, Fad),
+				FName = string:join(FName, "_"),
+				FName = string:join(FName, Step/64),
+				FName = string:join(FName, ".txt"),
+				file:write_file(FName, [substr(FileStuff, Step0, Step-Step0)])
+			end,
+		true->
+			while(Step < Len+1)
+	end.
+
 
 	%while(substrn(FileStuff,step,64)) ->
 
 
-
-
-	
 	% CODE THIS
 	% Takes file from input folder.
 	% Split file into file parts and send them through the file servers in rotation
