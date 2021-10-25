@@ -27,7 +27,7 @@ start_dir_service() ->
 
 % starts a file server with the UAL of the Directory Service
 start_file_server(DirUAL) ->
-	Pid2 = spawn(file_server_receiver()),
+	Pid2 = spawn(file_server_receiver("servers/fs", [])),
 	whereis(dr) ! {addFile, Pid2}.
 	% CODE THIS
 	% Create folder in server
@@ -51,7 +51,7 @@ dir_service_receiver(LS) ->
 			quit(LS)
 	end.
 
-file_server_receiver() ->
+file_server_receiver(FilePath, Chunks) ->
 	%receive
 		%{q} ->
 			%clear folders in servers
@@ -78,14 +78,19 @@ create(DirUAL, File) ->
 	Index = 1,
 	Len = len(FileStuff)/64,
 	FName = string:join("/servers/fs",Index),
-	while(Step < Len+1).
+	while(Step < Len+1, FileStuff, Pos, Fad, Step, Index, Len, FName).
 	
 
-while(false) -> ok;
-while(Step < Len) ->
+while(false, FileStuff, Pos, Fad, Step, Index, Len, FName) -> 
 	if 
 		is_dir(FName) ->
-			file:write_file(FName, substr(FileStuff, Step, 64));
+			FName = string:join("/servers/fs",Index),
+			FName = string:join(FName, "/"),
+			FName = string:join(FName, Fad),
+			FName = string:join(FName, "_"),
+			FName = string:join(FName, Step/64),
+			FName = string:join(FName, ".txt"),
+			file:write_file(FName, substr(FileStuff, Step-64, Step - (Step-64)));
 		true ->
 			Index = 1,
 			FName = string:join("/servers/fs",Index),
@@ -94,39 +99,30 @@ while(Step < Len) ->
 			FName = string:join(FName, "_"),
 			FName = string:join(FName, Step/64),
 			FName = string:join(FName, ".txt"),
-			file:write_file(FName, [substr(FileStuff, Step, 64)])
-	end,
-	Step0 = Step,
-	Step = Step + 64,
-	Index = Index + 1,
-	FName = string:join("/servers/fs",Index),
-	if 
-		Step > Len+1 ->
-			if 
-			is_dir(FName) ->
-				FName = string:join("/servers/fs",Index),
-				FName = string:join(FName, "/"),
-				FName = string:join(FName, Fad),
-				FName = string:join(FName, "_"),
-				FName = string:join(FName, Step/64),
-				FName = string:join(FName, ".txt"),
-				file:write_file(FName, [substr(FileStuff, Step0, Step-Step0)]);
-			true ->
-				Index = 1,
-				FName = string:join("/servers/fs",Index),
-				FName = string:join(FName, "/"),
-				FName = string:join(FName, Fad),
-				FName = string:join(FName, "_"),
-				FName = string:join(FName, Step/64),
-				FName = string:join(FName, ".txt"),
-				file:write_file(FName, [substr(FileStuff, Step0, Step-Step0)])
-			end,
-		true->
-			while(Step < Len+1)
+			file:write_file(FName, substr(FileStuff, Step-64, Step - (Step-64)))
 	end.
-
-
-	%while(substrn(FileStuff,step,64)) ->
+while(Checker, FileStuff, Pos, Fad, Step, Index, Len, FName) ->
+	if 
+		is_dir(FName) ->
+			FName = string:join("/servers/fs",Index),
+			FName = string:join(FName, "/"),
+			FName = string:join(FName, Fad),
+			FName = string:join(FName, "_"),
+			FName = string:join(FName, Step/64),
+			FName = string:join(FName, ".txt"),
+			file:write_file(FName, substr(FileStuff, Step, 64)),
+			while(Step+64 < Len+1, FileStuff, Pos, Fad, Step+1, Index+1, Len, string:join("/servers/fs",Index+1));
+		true ->
+			Index = 1,
+			FName = string:join("/servers/fs",Index),
+			FName = string:join(FName, "/"),
+			FName = string:join(FName, Fad),
+			FName = string:join(FName, "_"),
+			FName = string:join(FName, Step/64),
+			FName = string:join(FName, ".txt"),
+			file:write_file(FName, [substr(FileStuff, Step, 64)]),
+			while(Step+64 < Len+1, FileStuff, Pos, Fad, Step+1, Index+1, Len, string:join("/servers/fs",Index+1))
+	end.
 
 
 	% CODE THIS
