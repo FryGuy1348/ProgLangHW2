@@ -37,18 +37,31 @@ dir_service_receiver(LS) ->
 	FSList = LS,
 	receive
 		{addFile, FS} ->
+			FS = spawn(file_server_receiver(string:concat("servers/fs", length(FSList)), [])),
 			FSList = append(FSList, FS),
 			%io:fwrite("~p~n",[file:make_dir(string:concat("servers/", DirUAL))]),
 			file:make_dir(string:concat("servers/fs", length(FSList))),
 			dir_service_receiver(FSList);
+		%Perform Get operations
 		{g, Arg1, Arg2} ->
-			get(Arg1, Arg2),
+			
 			dir_service_receiver(FSList);
+		%Perform Create operations (Arg1 = DirUal, Arg2 = File)
 		{c, Arg1, Arg2} ->
-			create(Arg1, Arg2),
+			FileStuff = readFile(string:concat("input/",Arg2)),
+			Pos = string:chr(Arg2, $.),
+			%Get file name separate from .txt
+			Fad = string:substr(Arg2, 0, Pos-1),
+			Step = 1,
+			Index = 1,
+			Len = len(FileStuff)/64,
+			FName = string:join("/servers/fs",Index),
+			%Go through while loop and split up chunks among file servers
+			while(Step < Len+1, FileStuff, Pos, Fad, Step, Index, Len, FName, FSList),
 			dir_service_receiver(FSList);
 		{addPart, ID, Part, Index} ->
 			list:nth(Index-1, FSList) ! {addChunk, ID, Part};
+		%Send Quit command to all file servers
 		{q} ->
 			quit(LS)
 	end.
@@ -70,7 +83,7 @@ file_server_receiver(FilePath, Chunks) ->
 % then requests file parts from the locations retrieved from Dir Service
 % then combines the file and saves to downloads folder
 get(DirUAL, File) ->
-	pass.
+	whereis(dr) ! {g, DirUAL, File}.
 	% CODE THIS
 	% Check if downloads (directory/downloads) exists; if not, create it
 	% Takes file name as input
@@ -79,18 +92,11 @@ get(DirUAL, File) ->
 
 % gives Directory Service (DirUAL) the name/contents of File to create
 create(DirUAL, File) ->
-	FileStuff = readFile(File),
-	Pos = string:chr(File, $.),
-	Fad = string:substr(File, 0, Pos-1),
-	Step = 1,
-	Index = 1,
-	Len = len(FileStuff)/64,
-	FName = string:join("/servers/fs",Index),
-	while(Step < Len+1, FileStuff, Pos, Fad, Step, Index, Len, FName).
+	whereis(dr) ! {c, DirUAL, File}.
 	
 
-while(false, FileStuff, Pos, Fad, Step, Index, Len, FName) -> 
-	Booler = filelib:is_dir(FName),
+while(false, FileStuff, Pos, Fad, Step, Index, Len, FName, FSS) -> 
+	Booler = Index > length(FSS),
 	if 
 		Booler == true ->
 			FName = string:join("/servers/fs",Index),
@@ -110,7 +116,7 @@ while(false, FileStuff, Pos, Fad, Step, Index, Len, FName) ->
 			FName = string:join(FName, ".txt"),
 			file:write_file(FName, substr(FileStuff, Step-64, Step - (Step-64)))
 	end;
-while(Checker, FileStuff, Pos, Fad, Step, Index, Len, FName) ->
+while(Checker, FileStuff, Pos, Fad, Step, Index, Len, FName, FSS) ->
 	Booler = filelib:is_dir(FName),
 	if 
 		Booler == true ->
@@ -121,7 +127,7 @@ while(Checker, FileStuff, Pos, Fad, Step, Index, Len, FName) ->
 			FName = string:join(FName, Step/64),
 			FName = string:join(FName, ".txt"),
 			file:write_file(FName, substr(FileStuff, Step, 64)),
-			while(Step+64 < Len+1, FileStuff, Pos, Fad, Step+1, Index+1, Len, string:join("/servers/fs",Index+1));
+			while(Step+64 < Len+1, FileStuff, Pos, Fad, Step+1, Index+1, Len, string:join("/servers/fs",Index+1), FSS);
 		true ->
 			Index = 1,
 			FName = string:join("/servers/fs",Index),
@@ -131,7 +137,7 @@ while(Checker, FileStuff, Pos, Fad, Step, Index, Len, FName) ->
 			FName = string:join(FName, Step/64),
 			FName = string:join(FName, ".txt"),
 			file:write_file(FName, [substr(FileStuff, Step, 64)]),
-			while(Step+64 < Len+1, FileStuff, Pos, Fad, Step+1, Index+1, Len, string:join("/servers/fs",Index+1))
+			while(Step+64 < Len+1, FileStuff, Pos, Fad, Step+1, Index+1, Len, string:join("/servers/fs",Index+1), FSS)
 	end.
 
 	% CODE THIS
@@ -142,10 +148,3 @@ while(Checker, FileStuff, Pos, Fad, Step, Index, Len, FName) ->
 quit(DirUAL) ->
 	whereis(dr) ! {q}.
 	% CODE THIS
-
-
-
-
-%Client: Specify file name, located in same directory. Server created in folder. Specify from this working directory, go and get file from here.
-%Salse - java, can use java objects
-%Erlang - more common, more support
