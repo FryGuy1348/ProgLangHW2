@@ -47,16 +47,24 @@ dir_service_receiver(LS) ->
 		{c, Arg1, Arg2} ->
 			create(Arg1, Arg2),
 			dir_service_receiver(FSList);
+		{addPart, ID, Part, Index} ->
+			list:nth(Index-1, FSList) ! {addChunk, ID, Part};
 		{q} ->
 			quit(LS)
 	end.
 
 file_server_receiver(FilePath, Chunks) ->
-	%receive
-		%{q} ->
-			%clear folders in servers
-		%end.
-	pass.
+	receive
+		{addChunk, Chunk} ->
+			Chunks = append(Chunks, Chunk),
+			file_server_receiver(FilePath, Chunks);
+		{getChunk, Index} ->
+			whereis(dr) ! {chunkPart, Index, list:nth(Index, Chunks)},
+			file_server_receiver(FilePath, Chunks);
+		{q} ->
+			Chunks = [],
+			file:del_dir(FilePath, [recursive, force])
+	end.
 
 % requests file information from the Directory Service (DirUAL) on File
 % then requests file parts from the locations retrieved from Dir Service
@@ -82,8 +90,9 @@ create(DirUAL, File) ->
 	
 
 while(false, FileStuff, Pos, Fad, Step, Index, Len, FName) -> 
+	Booler = filelib:is_dir(FName),
 	if 
-		is_dir(FName) ->
+		Booler == true ->
 			FName = string:join("/servers/fs",Index),
 			FName = string:join(FName, "/"),
 			FName = string:join(FName, Fad),
@@ -100,10 +109,11 @@ while(false, FileStuff, Pos, Fad, Step, Index, Len, FName) ->
 			FName = string:join(FName, Step/64),
 			FName = string:join(FName, ".txt"),
 			file:write_file(FName, substr(FileStuff, Step-64, Step - (Step-64)))
-	end.
+	end;
 while(Checker, FileStuff, Pos, Fad, Step, Index, Len, FName) ->
+	Booler = filelib:is_dir(FName),
 	if 
-		is_dir(FName) ->
+		Booler == true ->
 			FName = string:join("/servers/fs",Index),
 			FName = string:join(FName, "/"),
 			FName = string:join(FName, Fad),
@@ -124,14 +134,13 @@ while(Checker, FileStuff, Pos, Fad, Step, Index, Len, FName) ->
 			while(Step+64 < Len+1, FileStuff, Pos, Fad, Step+1, Index+1, Len, string:join("/servers/fs",Index+1))
 	end.
 
-
 	% CODE THIS
 	% Takes file from input folder.
 	% Split file into file parts and send them through the file servers in rotation
 
 % sends shutdown message to the Directory Service (DirUAL)
 quit(DirUAL) ->
-	pass.
+	whereis(dr) ! {q}.
 	% CODE THIS
 
 
