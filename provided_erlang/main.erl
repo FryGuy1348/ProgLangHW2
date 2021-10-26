@@ -96,7 +96,7 @@ create(DirUAL, File) ->
 	
 
 while(false, FileStuff, Pos, Fad, Step, Index, Len, FName, FSS) -> 
-	Booler = Index > length(FSS),
+	Booler = Index-1 < length(FSS),
 	if 
 		Booler == true ->
 			FName = string:join("/servers/fs",Index),
@@ -105,7 +105,8 @@ while(false, FileStuff, Pos, Fad, Step, Index, Len, FName, FSS) ->
 			FName = string:join(FName, "_"),
 			FName = string:join(FName, Step/64),
 			FName = string:join(FName, ".txt"),
-			file:write_file(FName, substr(FileStuff, Step-64, Step - (Step-64)));
+			file:write_file(FName, substr(FileStuff, Step-64, Step - (Step-64))),
+			list:nth(Index-1, FSS) ! {addChunk, substr(FileStuff, Step-64, Step - (Step-64))};
 		true ->
 			Index = 1,
 			FName = string:join("/servers/fs",Index),
@@ -114,7 +115,8 @@ while(false, FileStuff, Pos, Fad, Step, Index, Len, FName, FSS) ->
 			FName = string:join(FName, "_"),
 			FName = string:join(FName, Step/64),
 			FName = string:join(FName, ".txt"),
-			file:write_file(FName, substr(FileStuff, Step-64, Step - (Step-64)))
+			file:write_file(FName, substr(FileStuff, Step-64, Step - (Step-64))),
+			list:nth(Index-1, FSS) ! {addChunk, substr(FileStuff, Step-64, Step - (Step-64))}
 	end;
 while(Checker, FileStuff, Pos, Fad, Step, Index, Len, FName, FSS) ->
 	Booler = filelib:is_dir(FName),
@@ -127,6 +129,7 @@ while(Checker, FileStuff, Pos, Fad, Step, Index, Len, FName, FSS) ->
 			FName = string:join(FName, Step/64),
 			FName = string:join(FName, ".txt"),
 			file:write_file(FName, substr(FileStuff, Step, 64)),
+			list:nth(Index-1, FSS) ! {addChunk, substr(FileStuff, Step-64, Step - (Step-64))};
 			while(Step+64 < Len+1, FileStuff, Pos, Fad, Step+1, Index+1, Len, string:join("/servers/fs",Index+1), FSS);
 		true ->
 			Index = 1,
@@ -137,6 +140,7 @@ while(Checker, FileStuff, Pos, Fad, Step, Index, Len, FName, FSS) ->
 			FName = string:join(FName, Step/64),
 			FName = string:join(FName, ".txt"),
 			file:write_file(FName, [substr(FileStuff, Step, 64)]),
+			list:nth(Index-1, FSS) ! {addChunk, substr(FileStuff, Step-64, Step - (Step-64))};
 			while(Step+64 < Len+1, FileStuff, Pos, Fad, Step+1, Index+1, Len, string:join("/servers/fs",Index+1), FSS)
 	end.
 
