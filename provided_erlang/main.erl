@@ -63,7 +63,7 @@ dir_service_receiver(LS) ->
 			list:nth(Index-1, FSList) ! {addChunk, ID, Part};
 		%Send Quit command to all file servers
 		{q} ->
-			quit(LS)
+			
 	end.
 
 file_server_receiver(FilePath, Chunks) ->
@@ -75,8 +75,8 @@ file_server_receiver(FilePath, Chunks) ->
 			whereis(dr) ! {chunkPart, Index, list:nth(Index, Chunks)},
 			file_server_receiver(FilePath, Chunks);
 		{q} ->
-			Chunks = [],
-			file:del_dir(FilePath, [recursive, force])
+			Chunks = [];
+			%file:del_dir(FilePath, [recursive, force])
 	end.
 
 % requests file information from the Directory Service (DirUAL) on File
@@ -93,6 +93,10 @@ get(DirUAL, File) ->
 % gives Directory Service (DirUAL) the name/contents of File to create
 create(DirUAL, File) ->
 	whereis(dr) ! {c, DirUAL, File}.
+
+
+message_servers(Message, Files, Index) ->
+	pass.
 	
 
 while(false, FileStuff, Pos, Fad, Step, Index, Len, FName, FSS) -> 
@@ -129,8 +133,8 @@ while(Checker, FileStuff, Pos, Fad, Step, Index, Len, FName, FSS) ->
 			FName = string:join(FName, Step/64),
 			FName = string:join(FName, ".txt"),
 			file:write_file(FName, substr(FileStuff, Step, 64)),
-			list:nth(Index-1, FSS) ! {addChunk, substr(FileStuff, Step-64, Step - (Step-64))};
-			while(Step+64 < Len+1, FileStuff, Pos, Fad, Step+1, Index+1, Len, string:join("/servers/fs",Index+1), FSS);
+			list:nth(Index-1, FSS) ! {addChunk, substr(FileStuff, Step-64, Step - (Step-64))},
+			while(Step+64 < Len+1, FileStuff, Pos, Fad, Step+1, Index+1, Len, string:concat("/servers/fs",Index+1), FSS);
 		true ->
 			Index = 1,
 			FName = string:join("/servers/fs",Index),
@@ -140,8 +144,8 @@ while(Checker, FileStuff, Pos, Fad, Step, Index, Len, FName, FSS) ->
 			FName = string:join(FName, Step/64),
 			FName = string:join(FName, ".txt"),
 			file:write_file(FName, [substr(FileStuff, Step, 64)]),
-			list:nth(Index-1, FSS) ! {addChunk, substr(FileStuff, Step-64, Step - (Step-64))};
-			while(Step+64 < Len+1, FileStuff, Pos, Fad, Step+1, Index+1, Len, string:join("/servers/fs",Index+1), FSS)
+			list:nth(Index-1, FSS) ! {addChunk, substr(FileStuff, Step-64, Step - (Step-64))},
+			while(Step+64 < Len+1, FileStuff, Pos, Fad, Step+1, Index+1, Len, string:concat("/servers/fs",Index+1), FSS)
 	end.
 
 	% CODE THIS
