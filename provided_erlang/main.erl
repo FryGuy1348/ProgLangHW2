@@ -44,7 +44,11 @@ dir_service_receiver(LS) ->
 			dir_service_receiver(FSList);
 		%Perform Get operations
 		{g, Arg1, Arg2} ->
-			
+			%Go through each file server, 
+			%Set index at 1
+			%Match filename with index to find key
+			%If in map, addd and move onto next file server
+			%else end get and return file
 			dir_service_receiver(FSList);
 		%Perform Create operations (Arg1 = DirUal, Arg2 = File)
 		{c, Arg1, Arg2} ->
@@ -63,19 +67,21 @@ dir_service_receiver(LS) ->
 			list:nth(Index-1, FSList) ! {addChunk, ID, Part};
 		%Send Quit command to all file servers
 		{q} ->
-			
+			io:fwrite("~p~n","Done")	
 	end.
 
 file_server_receiver(FilePath, Chunks) ->
 	receive
-		{addChunk, Chunk} ->
-			Chunks = append(Chunks, Chunk),
+		{addChunk, Fname, Chunk} ->
+			maps:put(Fname, Chunk, Chunks)
+			%Chunks = append(Chunks, Chunk),
 			file_server_receiver(FilePath, Chunks);
-		{getChunk, Index} ->
-			whereis(dr) ! {chunkPart, Index, list:nth(Index, Chunks)},
+		{getChunk, Key} ->
+			whereis(dr) ! {chunkPart, Key, maps:get(Index,Map1)}
+			%whereis(dr) ! {chunkPart, Index, list:nth(Index, Chunks)},
 			file_server_receiver(FilePath, Chunks);
 		{q} ->
-			Chunks = [];
+			Chunks = {}
 			%file:del_dir(FilePath, [recursive, force])
 	end.
 
