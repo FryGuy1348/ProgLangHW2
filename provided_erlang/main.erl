@@ -44,6 +44,11 @@ dir_service_receiver(LS) ->
 			dir_service_receiver(FSList);
 		%Perform Get operations
 		{g, Arg1, Arg2} ->
+			Index = 1,
+			Str = "",
+			string:concat(Str, file_getter(Arg2, 1, list:nth(0, FSList), FSList)),
+			Address = string:concat("downloads/", Arg2),
+			file:write_file(Address, [Str]),
 			%Go through each file server, 
 			%Set index at 1
 			%Match filename with index to find key
@@ -73,11 +78,11 @@ dir_service_receiver(LS) ->
 file_server_receiver(FilePath, Chunks) ->
 	receive
 		{addChunk, Fname, Chunk} ->
-			maps:put(Fname, Chunk, Chunks)
+			maps:put(Fname, Chunk, Chunks),
 			%Chunks = append(Chunks, Chunk),
 			file_server_receiver(FilePath, Chunks);
 		{getChunk, Key} ->
-			whereis(dr) ! {chunkPart, Key, maps:get(Index,Map1)}
+			whereis(dr) ! {chunkPart, Key, maps:get(Key,Chunks)},
 			%whereis(dr) ! {chunkPart, Index, list:nth(Index, Chunks)},
 			file_server_receiver(FilePath, Chunks);
 		{q} ->
@@ -95,6 +100,21 @@ get(DirUAL, File) ->
 	% Takes file name as input
 	% Find each file part in individual servers
 	% Combines them and places in downloads folder
+
+file_getter(FileName, Index, FS, FSList) ->
+	Str = string:concat(FileName, "_"),
+	Str = string:join(Str, Index),
+	Booler = FS ! {isChunk, Str},
+	Str2 = "",
+
+	if
+		Booler == true ->
+			Str2 = FS ! {getChunk, Str},
+			%FS found by getting remainder of current Index (file part num) / length of File Server list
+			Str2 = string:join(Str2, file_getter(FileName, Index+1, list:nth(Index rem length(FSList), FSList), FSList))
+	end,
+	Str2.
+
 
 % gives Directory Service (DirUAL) the name/contents of File to create
 create(DirUAL, File) ->
