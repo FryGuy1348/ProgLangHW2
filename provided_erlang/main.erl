@@ -86,6 +86,9 @@ file_server_receiver(FilePath, Chunks) ->
 			Caller ! {chunkPart, maps:get(Key,Chunks)},
 			%whereis(dr) ! {chunkPart, Index, list:nth(Index, Chunks)},
 			file_server_receiver(FilePath, Chunks);
+		{isChunk, Key, Caller} ->
+			Caller ! {isTrue, maps:find(Key, Chunks)},
+			file_server_receiver(FilePath, Chunks);
 		{q} ->
 			Chunks = {}
 			%file:del_dir(FilePath, [recursive, force])
@@ -102,9 +105,21 @@ get(DirUAL, File) ->
 	% Find each file part in individual servers
 	% Combines them and places in downloads folder
 
+fullFile(Content) ->
+	receive
+		{addContent, NewContent} -> fullFile(string:concat(Content, NewContent));
+		{getContent, Caller} -> Caller ! {getString, Content},
+			fullFile("")
+	end.
+
 %write receive for Is and Get
 %make separate object to store string, receive at end
 file_getter(FileName, Index, FS, FSList) ->
+	receive
+		{getString, Val} -> Val;
+		{getPart, Part} -> 
+
+
 	Str = string:concat(FileName, "_"),
 	Str = string:join(Str, Index),
 	Booler = FS ! {isChunk, Str},
@@ -122,11 +137,6 @@ file_getter(FileName, Index, FS, FSList) ->
 % gives Directory Service (DirUAL) the name/contents of File to create
 create(DirUAL, File) ->
 	whereis(dr) ! {c, DirUAL, File}.
-
-
-message_servers(Message, Files, Index) ->
-	pass.
-	
 
 while(false, FileStuff, Pos, Fad, Step, Index, Len, FName, FSS) -> 
 	Booler = Index-1 < length(FSS),
