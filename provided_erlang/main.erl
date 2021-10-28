@@ -81,8 +81,9 @@ file_server_receiver(FilePath, Chunks) ->
 			maps:put(Fname, Chunk, Chunks),
 			%Chunks = append(Chunks, Chunk),
 			file_server_receiver(FilePath, Chunks);
-		{getChunk, Key} ->
-			whereis(dr) ! {chunkPart, Key, maps:get(Key,Chunks)},
+			%Pass caller (function) in message
+		{getChunk, Key, Caller} ->
+			Caller ! {chunkPart, maps:get(Key,Chunks)},
 			%whereis(dr) ! {chunkPart, Index, list:nth(Index, Chunks)},
 			file_server_receiver(FilePath, Chunks);
 		{q} ->
@@ -101,6 +102,8 @@ get(DirUAL, File) ->
 	% Find each file part in individual servers
 	% Combines them and places in downloads folder
 
+%write receive for Is and Get
+%make separate object to store string, receive at end
 file_getter(FileName, Index, FS, FSList) ->
 	Str = string:concat(FileName, "_"),
 	Str = string:join(Str, Index),
