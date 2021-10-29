@@ -48,6 +48,7 @@ dir_service_receiver(LS) ->
 			register(wa, Pid2),
 			Index = 1,
 			Str = "",
+			%Spawn file_getter as a process, obtain pid to send to other functions
 			string:concat(Str, file_getter(Arg2, 1, list:nth(0, FSList), FSList)),
 			%Go through each file server, 
 			%Set index at 1
