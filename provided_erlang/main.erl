@@ -38,9 +38,16 @@ dir_service_receiver(LS) ->
 		{addFile} ->
 			F1 = string:concat("servers/fs", length(FSList)+1),
 			FS = spawn(fun() -> file_server_receiver(F1, []) end),
+			
 			FSList1 = append(FSList, FS),
-			%io:fwrite("~p~n",[file:make_dir(string:concat("servers/", DirUAL))]),
-			file:make_dir(F1),
+
+			io:fwrite("Debugger1~n"),
+			io:fwrite("~p~n", [F1]),			
+			io:fwrite("~p~n",[file:make_dir("servers/fs")]),
+			io:fwrite("~p~n",[file:make_dir(string:concat("servers/fs", length(FSList)))]),
+			io:fwrite("Debugger4~n"),
+			
+			%file:make_dir(F1),
 			dir_service_receiver(FSList1);
 		%Perform Get operations
 		{get, Arg1, Arg2} ->
