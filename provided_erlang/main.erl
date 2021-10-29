@@ -44,11 +44,11 @@ dir_service_receiver(LS) ->
 			dir_service_receiver(FSList);
 		%Perform Get operations
 		{g, Arg1, Arg2} ->
+			Pid2 = spawn(node(), fun() -> fullFile("") end),
+			register(wa, Pid2),
 			Index = 1,
 			Str = "",
 			string:concat(Str, file_getter(Arg2, 1, list:nth(0, FSList), FSList)),
-			Address = string:concat("downloads/", Arg2),
-			file:write_file(Address, [Str]),
 			%Go through each file server, 
 			%Set index at 1
 			%Match filename with index to find key
@@ -108,7 +108,7 @@ get(DirUAL, File) ->
 fullFile(Content) ->
 	receive
 		{addContent, NewContent} -> fullFile(string:concat(Content, NewContent));
-		{getContent, Caller} -> Caller ! {getString, Content},
+		{getContent, Caller, FileName} -> Caller ! {getString, Content},
 			fullFile("")
 	end.
 
@@ -116,22 +116,25 @@ fullFile(Content) ->
 %make separate object to store string, receive at end
 file_getter(FileName, Index, FS, FSList) ->
 	receive
-		{getString, Val} -> Val;
+		{startProcess, FileName, Index, FS, FSList} ->
+			Str = string:concat(FileName, "_"),
+			Str = string:join(Str, Index),
+			Booler = FS ! {isChunk, Str},
+			file_getter(FileName, Index, FS, FSList);
+		{getString, Val} -> 
+			whereis(wa) ! {getContent, , FileName};
 		{getPart, Part} -> 
-
-
-	Str = string:concat(FileName, "_"),
-	Str = string:join(Str, Index),
-	Booler = FS ! {isChunk, Str},
-	Str2 = "",
-
-	if
-		Booler == true ->
-			Str2 = FS ! {getChunk, Str},
-			%FS found by getting remainder of current Index (file part num) / length of File Server list
-			Str2 = string:join(Str2, file_getter(FileName, Index+1, list:nth(Index rem length(FSList), FSList), FSList))
-	end,
-	Str2.
+			whereis(wa) ! {addContent, Part},
+			file_getter(FileName, Index+1, list:nth(Index rem length(FSList), FSList), FSList);
+		{isTrue, Booler} ->
+			if
+			Booler == true ->
+				FS ! {getChunk, Str}
+				%FS found by getting remainder of current Index (file part num) / length of File Server list
+				%Str2 = string:join(Str2, file_getter(FileName, Index+1, list:nth(Index rem length(FSList), FSList), FSList))
+		end,
+		file_getter(FileName, Index, FS, FSList)
+	end.
 
 
 % gives Directory Service (DirUAL) the name/contents of File to create
