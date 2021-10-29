@@ -46,10 +46,11 @@ dir_service_receiver(LS) ->
 		{g, Arg1, Arg2} ->
 			Pid2 = spawn(node(), fun() -> fullFile("") end),
 			register(wa, Pid2),
-			Index = 1,
-			Str = "",
+			Pid3 = spawn(node(),fun() ->file_getter(Arg2, 1, list:nth(0, FSList), FSList) end),
+			register(de,Pid3),
+			whereis(de) ! {startProcess, Arg2, 1, list:nth(0, FSList), FSList},
 			%Spawn file_getter as a process, obtain pid to send to other functions
-			string:concat(Str, file_getter(Arg2, 1, list:nth(0, FSList), FSList)),
+			%string:concat(Str, file_getter(Arg2, 1, list:nth(0, FSList), FSList)),
 			%Go through each file server, 
 			%Set index at 1
 			%Match filename with index to find key
@@ -123,18 +124,23 @@ file_getter(FileName, Index, FS, FSList) ->
 			Booler = FS ! {isChunk, Str},
 			file_getter(FileName, Index, FS, FSList);
 		{getString, Val} -> 
-			whereis(wa) ! {getContent, , FileName};
+			Str1 = string:join("downloads/", FileName),
+			file:write_file(Str1, Val);
 		{getPart, Part} -> 
 			whereis(wa) ! {addContent, Part},
 			file_getter(FileName, Index+1, list:nth(Index rem length(FSList), FSList), FSList);
 		{isTrue, Booler} ->
 			if
 			Booler == true ->
-				FS ! {getChunk, Str}
+				Str = string:concat(FileName, "_"),
+				Str = string:join(Str, Index),
+				FS ! {getChunk, Str};
 				%FS found by getting remainder of current Index (file part num) / length of File Server list
 				%Str2 = string:join(Str2, file_getter(FileName, Index+1, list:nth(Index rem length(FSList), FSList), FSList))
-		end,
-		file_getter(FileName, Index, FS, FSList)
+			true ->
+				whereis(wa) ! {getContent, whereis(de), FileName}	
+			end,
+			file_getter(FileName, Index, FS, FSList)
 	end.
 
 
