@@ -27,8 +27,7 @@ start_dir_service() ->
 
 % starts a file server with the UAL of the Directory Service
 start_file_server(DirUAL) ->
-	Pid2 = spawn(file_server_receiver("servers/fs", [])),
-	whereis(dr) ! {addFile, Pid2}.
+	whereis(dr) ! {addFile}.
 	% CODE THIS
 	% Create folder in server
 	% name is taken as input 
@@ -36,14 +35,15 @@ start_file_server(DirUAL) ->
 dir_service_receiver(LS) ->
 	FSList = LS,
 	receive
-		{addFile, FS} ->
-			FS = spawn(file_server_receiver(string:concat("servers/fs", length(FSList)), [])),
-			FSList = append(FSList, FS),
+		{addFile} ->
+			F1 = string:concat("servers/fs", length(FSList)+1),
+			FS = spawn(fun() -> file_server_receiver(F1, []) end),
+			FSList1 = append(FSList, FS),
 			%io:fwrite("~p~n",[file:make_dir(string:concat("servers/", DirUAL))]),
-			file:make_dir(string:concat("servers/fs", length(FSList))),
-			dir_service_receiver(FSList);
+			file:make_dir(F1),
+			dir_service_receiver(FSList1);
 		%Perform Get operations
-		{g, Arg1, Arg2} ->
+		{get, Arg1, Arg2} ->
 			Pid2 = spawn(node(), fun() -> fullFile("") end),
 			register(wa, Pid2),
 			Pid3 = spawn(node(),fun() ->file_getter(Arg2, 1, list:nth(0, FSList), FSList) end),
@@ -58,7 +58,7 @@ dir_service_receiver(LS) ->
 			%else end get and return file
 			dir_service_receiver(FSList);
 		%Perform Create operations (Arg1 = DirUal, Arg2 = File)
-		{c, Arg1, Arg2} ->
+		{create, Arg1, Arg2} ->
 			FileStuff = readFile(string:concat("input/",Arg2)),
 			Pos = string:chr(Arg2, $.),
 			%Get file name separate from .txt
@@ -74,7 +74,7 @@ dir_service_receiver(LS) ->
 			list:nth(Index-1, FSList) ! {addChunk, ID, Part};
 		%Send Quit command to all file servers
 		{q} ->
-			io:fwrite("~p~n","Done")	
+			destroy_servers(FSList, 0)
 	end.
 
 file_server_receiver(FilePath, Chunks) ->
@@ -92,15 +92,24 @@ file_server_receiver(FilePath, Chunks) ->
 			Caller ! {isTrue, maps:find(Key, Chunks)},
 			file_server_receiver(FilePath, Chunks);
 		{q} ->
-			Chunks = {}
+			pass
 			%file:del_dir(FilePath, [recursive, force])
+	end.
+
+destroy_servers(FSList, Index) ->
+	Booler = Index >= length(FSList),
+	if Booler == true,
+		pass;
+		true ->
+		list:nth(Index, FSList) ! {q},
+		destroy_servers(FSList, Index+1)
 	end.
 
 % requests file information from the Directory Service (DirUAL) on File
 % then requests file parts from the locations retrieved from Dir Service
 % then combines the file and saves to downloads folder
 get(DirUAL, File) ->
-	whereis(dr) ! {g, DirUAL, File}.
+	whereis(dr) ! {get, DirUAL, File}.
 	% CODE THIS
 	% Check if downloads (directory/downloads) exists; if not, create it
 	% Takes file name as input
@@ -124,7 +133,7 @@ file_getter(FileName, Index, FS, FSList) ->
 			Booler = FS ! {isChunk, Str},
 			file_getter(FileName, Index, FS, FSList);
 		{getString, Val} -> 
-			Str1 = string:join("downloads/", FileName),
+			Str1 = saveFile("downloads/", FileName),
 			file:write_file(Str1, Val);
 		{getPart, Part} -> 
 			whereis(wa) ! {addContent, Part},
@@ -146,7 +155,7 @@ file_getter(FileName, Index, FS, FSList) ->
 
 % gives Directory Service (DirUAL) the name/contents of File to create
 create(DirUAL, File) ->
-	whereis(dr) ! {c, DirUAL, File}.
+	whereis(dr) ! {create, DirUAL, File}.
 
 while(false, FileStuff, Pos, Fad, Step, Index, Len, FName, FSS) -> 
 	Booler = Index-1 < length(FSS),
@@ -158,7 +167,7 @@ while(false, FileStuff, Pos, Fad, Step, Index, Len, FName, FSS) ->
 			FName = string:join(FName, "_"),
 			FName = string:join(FName, Step/64),
 			FName = string:join(FName, ".txt"),
-			file:write_file(FName, substr(FileStuff, Step-64, Step - (Step-64))),
+			saveFile(FName, substr(FileStuff, Step-64, Step - (Step-64))),
 			list:nth(Index-1, FSS) ! {addChunk, substr(FileStuff, Step-64, Step - (Step-64))};
 		true ->
 			Index = 1,
@@ -168,7 +177,7 @@ while(false, FileStuff, Pos, Fad, Step, Index, Len, FName, FSS) ->
 			FName = string:join(FName, "_"),
 			FName = string:join(FName, Step/64),
 			FName = string:join(FName, ".txt"),
-			file:write_file(FName, substr(FileStuff, Step-64, Step - (Step-64))),
+			saveFile(FName, substr(FileStuff, Step-64, Step - (Step-64))),
 			list:nth(Index-1, FSS) ! {addChunk, substr(FileStuff, Step-64, Step - (Step-64))}
 	end;
 while(Checker, FileStuff, Pos, Fad, Step, Index, Len, FName, FSS) ->
@@ -181,7 +190,7 @@ while(Checker, FileStuff, Pos, Fad, Step, Index, Len, FName, FSS) ->
 			FName = string:join(FName, "_"),
 			FName = string:join(FName, Step/64),
 			FName = string:join(FName, ".txt"),
-			file:write_file(FName, substr(FileStuff, Step, 64)),
+			saveFile(FName, substr(FileStuff, Step, 64)),
 			list:nth(Index-1, FSS) ! {addChunk, substr(FileStuff, Step-64, Step - (Step-64))},
 			while(Step+64 < Len+1, FileStuff, Pos, Fad, Step+1, Index+1, Len, string:concat("/servers/fs",Index+1), FSS);
 		true ->
@@ -192,7 +201,7 @@ while(Checker, FileStuff, Pos, Fad, Step, Index, Len, FName, FSS) ->
 			FName = string:join(FName, "_"),
 			FName = string:join(FName, Step/64),
 			FName = string:join(FName, ".txt"),
-			file:write_file(FName, [substr(FileStuff, Step, 64)]),
+			saveFile(FName, [substr(FileStuff, Step, 64)]),
 			list:nth(Index-1, FSS) ! {addChunk, substr(FileStuff, Step-64, Step - (Step-64))},
 			while(Step+64 < Len+1, FileStuff, Pos, Fad, Step+1, Index+1, Len, string:concat("/servers/fs",Index+1), FSS)
 	end.
