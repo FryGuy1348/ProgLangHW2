@@ -44,7 +44,8 @@ dir_service_receiver(LS) ->
 			io:fwrite("Debugger1~n"),
 			io:fwrite("~p~n", [F1]),			
 			io:fwrite("~p~n",[file:make_dir("servers/fs")]),
-			io:fwrite("~p~n",[file:make_dir(string:concat("servers/fs", length(FSList)))]),
+			%io:fwrite("~p~n",[file:make_dir(string:concat("servers/fs", length(FSList)))]),
+			io:fwrite("~p~n",[file:make_dir(string:join("servers/fs", length(FSList)))]),
 			io:fwrite("Debugger4~n"),
 			
 			%file:make_dir(F1),
