@@ -47,8 +47,10 @@ done < "$input"
 
 for value in "${files[@]}"
 do
-    file1="input/$value"
-    file2="downloads/$value"
+    buf="${value%\"}"
+    buf="${buf#\"}"
+    file1="input/$buf"
+    file2="downloads/$buf"
     echo $file1
     echo $file2
     if cmp -s "$file1" "$file2"; then

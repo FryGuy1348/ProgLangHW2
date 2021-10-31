@@ -3,6 +3,7 @@
 -import(lists,[append/2]). 
 -import(string,[substr/3]). 
 -import(string,[len/1]). 
+-import(string,[concat/2]).
 % main functions
 -export([start_file_server/1, start_dir_service/0, get/2, create/2, quit/1]).
 
@@ -36,16 +37,18 @@ dir_service_receiver(LS) ->
 	FSList = LS,
 	receive
 		{addFile} ->
-			F1 = string:concat("servers/fs", length(FSList)+1),
+			F0 = "servers/fs",
+			FN = integer_to_list(length(FSList) + 1),
+			io:fwrite("Debugger0~n"),
+			io:fwrite("~p1~n", [FN]),
+			F1 = string:concat(F0, FN),
 			FS = spawn(fun() -> file_server_receiver(F1, []) end),
 			
 			FSList1 = append(FSList, FS),
 
 			io:fwrite("Debugger1~n"),
-			io:fwrite("~p~n", [F1]),			
-			io:fwrite("~p~n",[file:make_dir("servers/fs")]),
-			%io:fwrite("~p~n",[file:make_dir(string:concat("servers/fs", length(FSList)))]),
-			io:fwrite("~p~n",[file:make_dir(string:join("servers/fs", length(FSList)))]),
+			io:fwrite("~p2~n", [F1]),			
+			io:fwrite("~p3.5~n",[file:make_dir(F1)]),
 			io:fwrite("Debugger4~n"),
 			
 			%file:make_dir(F1),
@@ -70,7 +73,7 @@ dir_service_receiver(LS) ->
 			FileStuff = readFile(string:concat("input/",Arg2)),
 			Pos = string:chr(Arg2, $.),
 			%Get file name separate from .txt
-			Fad = string:substr(Arg2, 0, Pos-1),
+			Fad = string:substr(Arg2, 0, Pos),
 			Step = 1,
 			Index = 1,
 			Len = len(FileStuff)/64,
@@ -105,7 +108,7 @@ file_server_receiver(FilePath, Chunks) ->
 	end.
 
 destroy_servers(FSList, Index) ->
-	Booler = Index >= length(FSList),
+	Booler = Index > length(FSList),
 	if Booler == true,
 		pass;
 		true ->
