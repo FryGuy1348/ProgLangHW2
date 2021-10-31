@@ -19,7 +19,7 @@
 
 % starts a directory service
 start_dir_service() ->
-	Pid = spawn(node(), fun() -> dir_service_receiver([]) end),
+	Pid = spawn(node(), fun() -> dir_service_receiver([], 1) end),
 	register(dr, Pid).
 	% CODE THIS
 	% Create new directory service as actor
@@ -33,26 +33,26 @@ start_file_server(DirUAL) ->
 	% Create folder in server
 	% name is taken as input 
 
-dir_service_receiver(LS) ->
+dir_service_receiver(LS, FNum) ->
 	FSList = LS,
 	receive
 		{addFile} ->
 			F0 = "servers/fs",
-			FN = integer_to_list(length(FSList) + 1),
+			FX = integer_to_list(FNum),
 			io:fwrite("Debugger0~n"),
-			io:fwrite("~p1~n", [FN]),
-			F1 = string:concat(F0, FN),
+			io:fwrite("~p1~n", [FX]),
+			F1 = string:concat(F0, FX),
+			io:fwrite("~p2~n", [F1]),
 			FS = spawn(fun() -> file_server_receiver(F1, []) end),
 			
-			FSList1 = append(FSList, FS),
+			FSList1 = append(FSList, [FS]),
 
 			io:fwrite("Debugger1~n"),
-			io:fwrite("~p2~n", [F1]),			
 			io:fwrite("~p3.5~n",[file:make_dir(F1)]),
 			io:fwrite("Debugger4~n"),
 			
 			%file:make_dir(F1),
-			dir_service_receiver(FSList1);
+			dir_service_receiver(FSList1, FNum+1);
 		%Perform Get operations
 		{get, Arg1, Arg2} ->
 			Pid2 = spawn(node(), fun() -> fullFile("") end),
@@ -67,22 +67,26 @@ dir_service_receiver(LS) ->
 			%Match filename with index to find key
 			%If in map, addd and move onto next file server
 			%else end get and return file
-			dir_service_receiver(FSList);
+			dir_service_receiver(FSList, FNum);
 		%Perform Create operations (Arg1 = DirUal, Arg2 = File)
 		{create, Arg1, Arg2} ->
 			FileStuff = readFile(string:concat("input/",Arg2)),
 			Pos = string:chr(Arg2, $.),
+			io:fwrite("~p4~n", [Pos]),
 			%Get file name separate from .txt
-			Fad = string:substr(Arg2, 0, Pos),
+			Fad = string:substr(Arg2, 1, Pos-1),
+			io:fwrite("~p5~n", [Fad]),
 			Step = 1,
 			Index = 1,
+			InV = integer_to_list(Index),
 			Len = len(FileStuff)/64,
-			FName = string:join("/servers/fs",Index),
+			FName = string:concat("/servers/fs",InV),
 			%Go through while loop and split up chunks among file servers
 			while(Step < Len+1, FileStuff, Pos, Fad, Step, Index, Len, FName, FSList),
-			dir_service_receiver(FSList);
+			dir_service_receiver(FSList, FNum);
 		{addPart, ID, Part, Index} ->
-			list:nth(Index-1, FSList) ! {addChunk, ID, Part};
+			list:nth(Index-1, FSList) ! {addChunk, ID, Part},
+			dir_service_receiver(FSList, FNum);
 		%Send Quit command to all file servers
 		{q} ->
 			destroy_servers(FSList, 0)
@@ -172,22 +176,27 @@ while(false, FileStuff, Pos, Fad, Step, Index, Len, FName, FSS) ->
 	Booler = Index-1 < length(FSS),
 	if 
 		Booler == true ->
-			FName = string:join("/servers/fs",Index),
-			FName = string:join(FName, "/"),
-			FName = string:join(FName, Fad),
-			FName = string:join(FName, "_"),
-			FName = string:join(FName, Step/64),
-			FName = string:join(FName, ".txt"),
+			InV = integer_to_list(Index),
+			FName = string:concat("servers/fs",InV),
+			FName = string:concat(FName, "/"),
+			Fav = integer_to_list(Fad),
+			FName = string:concat(FName, Fav),
+			FName = string:concat(FName, "_"),
+			Sv = integer_to_list(Step/64),
+			FName = string:concat(FName, Sv),
+			FName = string:concat(FName, ".txt"),
 			saveFile(FName, substr(FileStuff, Step-64, Step - (Step-64))),
 			list:nth(Index-1, FSS) ! {addChunk, substr(FileStuff, Step-64, Step - (Step-64))};
 		true ->
 			Index = 1,
-			FName = string:join("/servers/fs",Index),
-			FName = string:join(FName, "/"),
-			FName = string:join(FName, Fad),
-			FName = string:join(FName, "_"),
-			FName = string:join(FName, Step/64),
-			FName = string:join(FName, ".txt"),
+			FName = "servers/fs1",
+			FName = string:concat(FName, "/"),
+			Fav = integer_to_list(Fad),
+			FName = string:concat(FName, Fav),
+			FName = string:concat(FName, "_"),
+			Sv = integer_to_list(Step/64),
+			FName = string:concat(FName, Sv),
+			FName = string:concat(FName, ".txt"),
 			saveFile(FName, substr(FileStuff, Step-64, Step - (Step-64))),
 			list:nth(Index-1, FSS) ! {addChunk, substr(FileStuff, Step-64, Step - (Step-64))}
 	end;
@@ -195,26 +204,31 @@ while(Checker, FileStuff, Pos, Fad, Step, Index, Len, FName, FSS) ->
 	Booler = filelib:is_dir(FName),
 	if 
 		Booler == true ->
-			FName = string:join("/servers/fs",Index),
-			FName = string:join(FName, "/"),
-			FName = string:join(FName, Fad),
-			FName = string:join(FName, "_"),
-			FName = string:join(FName, Step/64),
-			FName = string:join(FName, ".txt"),
+			InV = integer_to_list(Index),
+			FName = string:concat("servers/fs",InV),
+			FName = string:concat(FName, "/"),
+			Fav = integer_to_list(Fad),
+			FName = string:concat(FName, Fav),
+			FName = string:concat(FName, "_"),
+			Sv = integer_to_list(Step/64),
+			FName = string:concat(FName, Sv),
+			FName = string:concat(FName, ".txt"),
 			saveFile(FName, substr(FileStuff, Step, 64)),
 			list:nth(Index-1, FSS) ! {addChunk, substr(FileStuff, Step-64, Step - (Step-64))},
-			while(Step+64 < Len+1, FileStuff, Pos, Fad, Step+1, Index+1, Len, string:concat("/servers/fs",Index+1), FSS);
+			while(Step+64 < Len+1, FileStuff, Pos, Fad, Step+1, Index+1, Len, string:concat("/servers/fs",integer_to_list(Index+1)), FSS);
 		true ->
 			Index = 1,
-			FName = string:join("/servers/fs",Index),
-			FName = string:join(FName, "/"),
-			FName = string:join(FName, Fad),
-			FName = string:join(FName, "_"),
-			FName = string:join(FName, Step/64),
-			FName = string:join(FName, ".txt"),
-			saveFile(FName, [substr(FileStuff, Step, 64)]),
+			FName = "servers/fs1",
+			FName1 = string:concat(FName, "/"),
+			Fav = integer_to_list(Fad),
+			FName2 = string:concat(FName1, Fav),
+			FName3 = string:concat(FName2, "_"),
+			Sv = integer_to_list(Step/64),
+			FName4 = string:concat(FName3, Sv),
+			FName5 = string:concat(FName4, ".txt"),
+			saveFile(FName5, [substr(FileStuff, Step, 64)]),
 			list:nth(Index-1, FSS) ! {addChunk, substr(FileStuff, Step-64, Step - (Step-64))},
-			while(Step+64 < Len+1, FileStuff, Pos, Fad, Step+1, Index+1, Len, string:concat("/servers/fs",Index+1), FSS)
+			while(Step+64 < Len+1, FileStuff, Pos, Fad, Step+1, Index+1, Len, "/servers/fs2", FSS)
 	end.
 
 	% CODE THIS
