@@ -17,7 +17,7 @@
 % when starting the Directory Service and File Servers, you will need
 % to register a process name and spawn a process in another node
 
-% starts a directory service
+% starts a directory service (and fullFile actor for get operations)
 start_dir_service() ->
 	Pid = spawn(node(), fun() -> dir_service_receiver([], 1, dict:new()) end),
 	register(dr, Pid),
@@ -28,90 +28,85 @@ start_dir_service() ->
 start_file_server(DirUAL) ->
 	whereis(dr) ! {addFile}.
 
+%Directory service actor
+%LS - FileServer list
+%FNum - Number of file servers / fs(FNum)
+%FDict - Dictionary of file part names and file server it is contained in
 dir_service_receiver(LS, FNum, FDict) ->
 	FSList = LS,
 	receive
+		%Add fileserver to the File server list (LS), and create a new FS directory based on FNum (# of servers)
 		{addFile} ->
 			F0 = "servers/fs",
 			FX = integer_to_list(FNum),
-			%io:fwrite("Debugger0~n"),
-			%io:fwrite("~p1~n", [FX]),
-			F1 = string:concat(F0, FX),
-			%io:fwrite("~p2~n", [F1]),
-			%FN = integer_to_list(length(FSList) + 1),
-			%io:fwrite("Debugger0~n"),
-			%io:fwrite("~p1~n", [FN]),
 			F1 = string:concat(F0, FX),
 			FS = spawn(fun() -> file_server_receiver(F1, dict:new()) end),
 			
 			FSList1 = append(FSList, [pid_to_list(FS)]),
 
-			%io:fwrite("Debugger1~n"),
-
+			%Make directory, fwrite for testing
 			io:fwrite("~p~n",[file:make_dir(F1)]),
-			%io:fwrite("Debugger4~n"),
-			
-			%file:make_dir(F1),
+
+			%Call directory service again to keep it going as a process
 			dir_service_receiver(FSList1, FNum+1, FDict);
-		%Perform Get operations
+
+		%Perform Get operations (Filter directory to get only the necessary file parts and combine the parts)
+		%(Arg2 = File)
 		{get, Arg2} ->
-			%io:fwrite("~p Dict~n", [FDict]),
 			Pos = string:chr(Arg2, $.),
 			Fad = string:substr(Arg2, 1, Pos-1),
-			%io:fwrite("~p FName~n", [Fad]),
 			Matches = fun(K, _) -> string:slice(K, 0, string:length(K) - string:length(string:find(K, "_", trailing))) == Fad end,
 			TempDict = dict:filter(Matches, FDict),
 			FSize = dict:size(TempDict),
-			%io:fwrite("~p TempSize~n", [FSize]),
+			%Actually go through file parts
 			f_get(Fad, FSList, TempDict, FSize, 1),
-			%Spawn file_getter as a process, obtain pid to send to other functions
-			%Go through each file server, 
-			%Set index at 1
-			%Match filename with index to find key
-			%If in map, addd and move onto next file server
-			%else end get and return file
+
 			dir_service_receiver(FSList, FNum, FDict);
 
-		%Perform Create operations (Arg1 = DirUal, Arg2 = File)
+		%Perform Create operations (Arg2 = File)
 		{create, Arg2} ->
 			FileStuff = readFile(string:concat("input/",Arg2)),
 			Pos = string:chr(Arg2, $.),
-			%io:fwrite("~p4~n", [Pos]),
+
 			%Get file name separate from .txt
 			Fad = string:substr(Arg2, 1, Pos-1),
-			%io:fwrite("~p5~n", [Fad]),
 
 			Index = 1,
 			InV = integer_to_list(Index),
 			Len = len(FileStuff),
 			FName = string:concat("servers/fs",InV),
+
 			%Go through while loop and split up chunks among file servers
 			while(1 < Len+1, FileStuff, Fad, 65, 1, Len, FName, FSList,1),
 			dir_service_receiver(FSList, FNum, FDict);
+
 		%Add entry to FileDictionary to keep track of where file part is, add chunk to relevant server
 		{addPart, ID, Part, Index} ->
 			list_to_pid(lists:nth(Index, FSList)) ! {addChunk, ID, Part},
 			F1 = dict:store(ID, Index, FDict),
 			dir_service_receiver(FSList, FNum, F1);
+
 		%Send Quit command to all file servers
 		{q} ->
 			destroy_servers(FSList, 1, FNum)
 	end.
 
+%Actor for file server
+%Chunks = dictionary of file parts
 file_server_receiver(FilePath, Chunks) ->
 	receive
+		%Add file part to dictionary of file parts (Key == fileName_num, Value == Contents of file part)
 		{addChunk, Fname, Chunk} ->
 			C2 = dict:store(Fname, Chunk, Chunks),
-			%Chunks = append(Chunks, Chunk),
 			file_server_receiver(FilePath, C2);
-			%Pass caller (function) in message
+		
+		%Pass file part to fullFile actor (stores contents of files and then saves them in downloads)
 		{getChunk, Key} ->
-			%io:fwrite("~p Key~n", [Key]),
-			%io:fwrite("~p ChunkNum~n", [dict:size(Chunks)]),
 			V1 = dict:fetch(Key,Chunks),
 			whereis(ff) ! {addContent, V1},
-			%whereis(dr) ! {chunkPart, Index, lists:nth(Index, Chunks)},
 			file_server_receiver(FilePath, Chunks);
+
+		%Destroy file server + directory
 		{q} ->
 			file:del_dir_r(FilePath)
 		end.
@@ -119,8 +114,6 @@ file_server_receiver(FilePath, Chunks) ->
 %Send command to file servers to quit/destroy themselves
 destroy_servers(FSList, Index, FNum) ->
 	Booler = Index < FNum,
-	%io:fwrite("~p Ind~n", [Index]),
-	%io:fwrite("~p Num~n", [FNum]),
 	case Booler of 
 		true ->
 			list_to_pid(lists:nth(Index, FSList)) ! {q},
@@ -132,12 +125,9 @@ destroy_servers(FSList, Index, FNum) ->
 % requests file information from the Directory Service (DirUAL) on File
 % then requests file parts from the locations retrieved from Dir Service
 % then combines the file and saves to downloads folder
+% Sends get command to directory service
 get(DirUAL, File) ->
 	whereis(dr) ! {get, File}.
-	% CODE THIS
-	% Takes file name as input
-	% Find each file part in individual servers
-	% Combines them and places in downloads folder
 
 %Stores full string until it is ready to be written to a file
 fullFile(Content) ->
@@ -146,6 +136,11 @@ fullFile(Content) ->
 		{getContent, FileName} -> timer:sleep(50),saveFile(FileName, Content), fullFile("")
 	end.
 
+%Get file parts from FDict and sends them to fullFile for compiling
+%FName - filename without .txt
+%FDIct - filtered dictionary
+%FNum - number of file parts to look out for
+%Index - current file part to get
 f_get(FName, FSList, FDict, FNum, Index) ->
 	timer:sleep(500),
 	case Index < (FNum+1) of
@@ -159,9 +154,6 @@ f_get(FName, FSList, FDict, FNum, Index) ->
 			whereis(ff) ! {getContent, string:concat("downloads/", string:concat(FName, ".txt"))}
 	end.
 
-%write receive for Is and Get
-%make separate object to store string, receive at end
-
 % gives Directory Service (DirUAL) the name/contents of File to create
 create(DirUAL, File) ->
 	whereis(dr) ! {create, File}.
@@ -169,9 +161,6 @@ create(DirUAL, File) ->
 %Loop to create new file parts from input file
 %True - Step < # of characters, False - Greater/Equal
 while(false, FileStuff, Fad, Step, Index, Len, FName, FSS, PNum) -> 
-	%io:fwrite("~pInd~n", [Index]),
-	%io:fwrite("~p Step~n", [Step]),
-	%io:fwrite("~p Len~n", [Len]),
 	Booler = filelib:is_dir(FName),
 	case Booler of 
 		true ->
@@ -198,10 +187,6 @@ while(false, FileStuff, Fad, Step, Index, Len, FName, FSS, PNum) ->
 	end;
 while(true, FileStuff, Fad, Step, Index, Len, FName, FSS, PNum) ->
 	Booler = filelib:is_dir(FName),
-	%io:fwrite("~pF~n", [FName]),
-	%io:fwrite("~pInd~n", [Index]),
-	%io:fwrite("~p Step~n", [Step]),
-	%io:fwrite("~p Len~n", [Len]),
 	case Booler of 
 		true ->
 			InV = integer_to_list(Index),
@@ -228,11 +213,6 @@ while(true, FileStuff, Fad, Step, Index, Len, FName, FSS, PNum) ->
 			while(Step+64 < Len, FileStuff, Fad, Step+64, 2, Len, "servers/fs2", FSS, PNum+1)
 	end.
 
-	% CODE THIS
-	% Takes file from input folder.
-	% Split file into file parts and send them through the file servers in rotation
-
 % sends shutdown message to the Directory Service (DirUAL)
 quit(DirUAL) ->
 	whereis(dr) ! {q}.
-	% CODE THIS
