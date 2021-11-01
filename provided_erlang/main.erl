@@ -66,7 +66,6 @@ dir_service_receiver(LS, FNum, FDict) ->
 			register(de,Pid3),
 			whereis(de) ! {startProcess, Arg2, 1, list_to_pid(lists:nth(1, FSList)), FSList, FDict},
 			%Spawn file_getter as a process, obtain pid to send to other functions
-			%string:concat(Str, file_getter(Arg2, 1, list:nth(0, FSList), FSList)),
 			%Go through each file server, 
 			%Set index at 1
 			%Match filename with index to find key
@@ -89,13 +88,15 @@ dir_service_receiver(LS, FNum, FDict) ->
 			%Go through while loop and split up chunks among file servers
 			while(1 < Len+1, FileStuff, Fad, 65, 1, Len, FName, FSList,1),
 			dir_service_receiver(FSList, FNum, FDict);
+
+
 		{addPart, ID, Part, Index} ->
 			list_to_pid(lists:nth(Index, FSList)) ! {addChunk, ID, Part},
 			dict:store(ID, Index, FDict),
 			dir_service_receiver(FSList, FNum, FDict);
 		%Send Quit command to all file servers
 		{q} ->
-			destroy_servers(FSList, 0, FNum)
+			destroy_servers(FSList, 1, FNum)
 	end.
 
 file_server_receiver(FilePath, Chunks) ->
@@ -106,25 +107,28 @@ file_server_receiver(FilePath, Chunks) ->
 			file_server_receiver(FilePath, Chunks);
 			%Pass caller (function) in message
 		{getChunk, Key, Caller} ->
-			Caller ! {chunkPart, maps:get(Key,Chunks)},
+			Caller ! {chunkPart, dict:fetch(Key,Chunks)},
 			%whereis(dr) ! {chunkPart, Index, lists:nth(Index, Chunks)},
 			file_server_receiver(FilePath, Chunks);
 		{isChunk, Key, Caller} ->
-			Caller ! {isTrue, maps:find(Key, Chunks)},
+			Caller ! {isTrue, dict:find(Key, Chunks)},
 			file_server_receiver(FilePath, Chunks);
 		{q} ->
-			file:del_dir_r(FilePath)
+			file:del_dir_r(FilePath),
+			Chunks = dict:new()
 			%file:del_dir(FilePath, [recursive, force])
 	end.
 
 destroy_servers(FSList, Index, FNum) ->
-	Booler = Index > FNum,
+	Booler = Index < FNum,
+	io:fwrite("~p Ind~n", [Index]),
+	io:fwrite("~p Num~n", [FNum]),
 	case Booler of 
 		true ->
-			pass;
-		false ->
 			list_to_pid(lists:nth(Index, FSList)) ! {q},
-			destroy_servers(FSList, Index+1, FNum)
+			destroy_servers(FSList, Index+1, FNum);
+		false ->
+			pass
 	end.
 
 % requests file information from the Directory Service (DirUAL) on File
@@ -179,10 +183,12 @@ file_getter(FileName, Index, FS, FSList, FDict) ->
 create(DirUAL, File) ->
 	whereis(dr) ! {create, File}.
 
+%Loop to create new file parts from input file
+%True - Step < # of characters, False - Greater/Equal
 while(false, FileStuff, Fad, Step, Index, Len, FName, FSS, PNum) -> 
-	io:fwrite("~pInd~n", [Index]),
-	io:fwrite("~p Step~n", [Step]),
-	io:fwrite("~p Len~n", [Len]),
+	%io:fwrite("~pInd~n", [Index]),
+	%io:fwrite("~p Step~n", [Step]),
+	%io:fwrite("~p Len~n", [Len]),
 	Booler = filelib:is_dir(FName),
 	case Booler of 
 		true ->
@@ -209,10 +215,10 @@ while(false, FileStuff, Fad, Step, Index, Len, FName, FSS, PNum) ->
 	end;
 while(true, FileStuff, Fad, Step, Index, Len, FName, FSS, PNum) ->
 	Booler = filelib:is_dir(FName),
-	io:fwrite("~pF~n", [FName]),
-	io:fwrite("~pInd~n", [Index]),
-	io:fwrite("~p Step~n", [Step]),
-	io:fwrite("~p Len~n", [Len]),
+	%io:fwrite("~pF~n", [FName]),
+	%io:fwrite("~pInd~n", [Index]),
+	%io:fwrite("~p Step~n", [Step]),
+	%io:fwrite("~p Len~n", [Len]),
 	case Booler of 
 		true ->
 			InV = integer_to_list(Index),
@@ -223,7 +229,7 @@ while(true, FileStuff, Fad, Step, Index, Len, FName, FSS, PNum) ->
 			Sv = integer_to_list(PNum),
 			FName4 = string:concat(FName3, Sv),
 			FName5 = string:concat(FName4, ".txt"),
-			io:fwrite("~p File SavedT~n", [util:saveFile(FName5, substr(FileStuff, Step-64, 64))]),
+			util:saveFile(FName5, substr(FileStuff, Step-64, 64)),
 			whereis(dr) ! {addPart, string:concat(string:concat(Fad, "_"), Sv), substr(FileStuff, Step - 64, Step - (Step-64)), Index},
 			while(Step+64 < Len, FileStuff, Fad, Step+64, Index+1, Len, string:concat("servers/fs",integer_to_list(Index+1)), FSS, PNum+1);
 		false ->
@@ -234,7 +240,7 @@ while(true, FileStuff, Fad, Step, Index, Len, FName, FSS, PNum) ->
 			Sv = integer_to_list(PNum),
 			FName4 = string:concat(FName3, Sv),
 			FName5 = string:concat(FName4, ".txt"),
-			io:fwrite("~p File SavedF~n", [util:saveFile(FName5, substr(FileStuff, Step-64, 64))]),
+			util:saveFile(FName5, substr(FileStuff, Step-64, 64)),
 			whereis(dr) ! {addPart, string:concat(string:concat(Fad, "_"), Sv), substr(FileStuff, Step-64, Step - (Step-64)), 1},
 			while(Step+64 < Len, FileStuff, Fad, Step+64, 2, Len, "servers/fs2", FSS, PNum+1)
 	end.
