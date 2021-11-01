@@ -39,22 +39,22 @@ dir_service_receiver(LS, FNum, FDict) ->
 		{addFile} ->
 			F0 = "servers/fs",
 			FX = integer_to_list(FNum),
-			io:fwrite("Debugger0~n"),
-			io:fwrite("~p1~n", [FX]),
+			%io:fwrite("Debugger0~n"),
+			%io:fwrite("~p1~n", [FX]),
 			F1 = string:concat(F0, FX),
-			io:fwrite("~p2~n", [F1]),
+			%io:fwrite("~p2~n", [F1]),
 			%FN = integer_to_list(length(FSList) + 1),
-			io:fwrite("Debugger0~n"),
+			%io:fwrite("Debugger0~n"),
 			%io:fwrite("~p1~n", [FN]),
 			F1 = string:concat(F0, FX),
-			FS = spawn(fun() -> file_server_receiver(F1, []) end),
+			FS = spawn(fun() -> file_server_receiver(F1, dict:new()) end),
 			
 			FSList1 = append(FSList, [pid_to_list(FS)]),
 
-			io:fwrite("Debugger1~n"),
+			%io:fwrite("Debugger1~n"),
 
-			io:fwrite("~p3.5~n",[file:make_dir(F1)]),
-			io:fwrite("Debugger4~n"),
+			io:fwrite("~p~n",[file:make_dir(F1)]),
+			%io:fwrite("Debugger4~n"),
 			
 			%file:make_dir(F1),
 			dir_service_receiver(FSList1, FNum+1, FDict);
@@ -84,10 +84,10 @@ dir_service_receiver(LS, FNum, FDict) ->
 
 			Index = 1,
 			InV = integer_to_list(Index),
-			Len = len(FileStuff) div 64,
+			Len = len(FileStuff),
 			FName = string:concat("servers/fs",InV),
 			%Go through while loop and split up chunks among file servers
-			while(1 < Len+1, FileStuff, Fad, 65, 1, Len, FName, FSList),
+			while(1 < Len+1, FileStuff, Fad, 65, 1, Len, FName, FSList,1),
 			dir_service_receiver(FSList, FNum, FDict);
 		{addPart, ID, Part, Index} ->
 			list_to_pid(lists:nth(Index, FSList)) ! {addChunk, ID, Part},
@@ -101,7 +101,7 @@ dir_service_receiver(LS, FNum, FDict) ->
 file_server_receiver(FilePath, Chunks) ->
 	receive
 		{addChunk, Fname, Chunk} ->
-			maps:put(Fname, Chunk, Chunks),
+			dict:store(Fname, Chunk, Chunks),
 			%Chunks = append(Chunks, Chunk),
 			file_server_receiver(FilePath, Chunks);
 			%Pass caller (function) in message
@@ -179,7 +179,10 @@ file_getter(FileName, Index, FS, FSList, FDict) ->
 create(DirUAL, File) ->
 	whereis(dr) ! {create, File}.
 
-while(false, FileStuff, Fad, Step, Index, Len, FName, FSS) -> 
+while(false, FileStuff, Fad, Step, Index, Len, FName, FSS, PNum) -> 
+	io:fwrite("~pInd~n", [Index]),
+	io:fwrite("~p Step~n", [Step]),
+	io:fwrite("~p Len~n", [Len]),
 	Booler = filelib:is_dir(FName),
 	case Booler of 
 		true ->
@@ -188,27 +191,28 @@ while(false, FileStuff, Fad, Step, Index, Len, FName, FSS) ->
 			FName1 = string:concat(FName0, "/"),
 			FName2 = string:concat(FName1, Fad),
 			FName3 = string:concat(FName2, "_"),
-			Sv = integer_to_list(trunc(math:ceil(Step / 64))),
+			Sv = integer_to_list(PNum),
 			FName4 = string:concat(FName3, Sv),
 			FName5 = string:concat(FName4, ".txt"),
-			saveFile(FName, substr(FileStuff, Step-64, Step - (Step-64))),
+			util:saveFile(FName5, substr(FileStuff, Step-64, Step - (Step-64))),
 			whereis(dr) ! {addPart, string:concat(string:concat(Fad, "_"), Sv), substr(FileStuff, Step-64, Step - (Step-64)), Index};
 		false ->
-			Index = 1,
 			FName0 = "servers/fs1",
 			FName1 = string:concat(FName0, "/"),
 			FName2 = string:concat(FName1, Fad),
 			FName3 = string:concat(FName2, "_"),
-			Sv = integer_to_list(trunc(math:ceil(Step / 64))),
+			Sv = integer_to_list(PNum),
 			FName4 = string:concat(FName3, Sv),
 			FName5 = string:concat(FName4, ".txt"),
-			saveFile(FName, substr(FileStuff, Step-64, Step - (Step-64))),
+			util:saveFile(FName5, substr(FileStuff, Step-64, Step - (Step-64))),
 			whereis(dr) ! {addPart, string:concat(string:concat(Fad, "_"), Sv), substr(FileStuff, Step-64, Step - (Step-64)), 1}
 	end;
-while(true, FileStuff, Fad, Step, Index, Len, FName, FSS) ->
+while(true, FileStuff, Fad, Step, Index, Len, FName, FSS, PNum) ->
 	Booler = filelib:is_dir(FName),
 	io:fwrite("~pF~n", [FName]),
 	io:fwrite("~pInd~n", [Index]),
+	io:fwrite("~p Step~n", [Step]),
+	io:fwrite("~p Len~n", [Len]),
 	case Booler of 
 		true ->
 			InV = integer_to_list(Index),
@@ -216,24 +220,23 @@ while(true, FileStuff, Fad, Step, Index, Len, FName, FSS) ->
 			FName1 = string:concat(FName0, "/"),
 			FName2 = string:concat(FName1, Fad),
 			FName3 = string:concat(FName2, "_"),
-			Sv = integer_to_list(trunc(math:ceil(Step / 64))),
+			Sv = integer_to_list(PNum),
 			FName4 = string:concat(FName3, Sv),
 			FName5 = string:concat(FName4, ".txt"),
-			saveFile(FName, substr(FileStuff, Step-64, Step - (Step-64))),
+			io:fwrite("~p File SavedT~n", [util:saveFile(FName5, substr(FileStuff, Step-64, 64))]),
 			whereis(dr) ! {addPart, string:concat(string:concat(Fad, "_"), Sv), substr(FileStuff, Step - 64, Step - (Step-64)), Index},
-			while(Step+64 < Len+1, FileStuff, Fad, Step+64, Index+1, Len, string:concat("servers/fs",integer_to_list(Index+1)), FSS);
+			while(Step+64 < Len, FileStuff, Fad, Step+64, Index+1, Len, string:concat("servers/fs",integer_to_list(Index+1)), FSS, PNum+1);
 		false ->
-			Index = 1,
 			FName0 = "servers/fs1",
 			FName1 = string:concat(FName0, "/"),
 			FName2 = string:concat(FName1, Fad),
 			FName3 = string:concat(FName2, "_"),
-			Sv = integer_to_list(trunc(math:ceil(Step / 64))),
+			Sv = integer_to_list(PNum),
 			FName4 = string:concat(FName3, Sv),
 			FName5 = string:concat(FName4, ".txt"),
-			saveFile(FName, substr(FileStuff, Step-64, Step - (Step-64))),
+			io:fwrite("~p File SavedF~n", [util:saveFile(FName5, substr(FileStuff, Step-64, 64))]),
 			whereis(dr) ! {addPart, string:concat(string:concat(Fad, "_"), Sv), substr(FileStuff, Step-64, Step - (Step-64)), 1},
-			while(Step+64 < Len, FileStuff, Fad, Step+64, 2, Len, "servers/fs2", FSS)
+			while(Step+64 < Len, FileStuff, Fad, Step+64, 2, Len, "servers/fs2", FSS, PNum+1)
 	end.
 
 	% CODE THIS
