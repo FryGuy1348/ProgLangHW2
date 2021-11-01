@@ -160,6 +160,7 @@ create(DirUAL, File) ->
 
 %Loop to create new file parts from input file
 %True - Step < # of characters, False - Greater/Equal
+%Loop creates name of text file and saves the contents to that savefile, then recursively calls again if needed
 while(false, FileStuff, Fad, Step, Index, Len, FName, FSS, PNum) -> 
 	Booler = filelib:is_dir(FName),
 	case Booler of 
@@ -185,6 +186,7 @@ while(false, FileStuff, Fad, Step, Index, Len, FName, FSS, PNum) ->
 			util:saveFile(FName5, substr(FileStuff, Step-64, Step - (Step-64))),
 			whereis(dr) ! {addPart, string:concat(string:concat(Fad, "_"), Sv), substr(FileStuff, Step-64, Step - (Step-64)), 1}
 	end;
+%While loop if true
 while(true, FileStuff, Fad, Step, Index, Len, FName, FSS, PNum) ->
 	Booler = filelib:is_dir(FName),
 	case Booler of 
