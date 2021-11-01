@@ -55,13 +55,14 @@ dir_service_receiver(LS, FNum, FDict) ->
 			dir_service_receiver(FSList1, FNum+1, FDict);
 		%Perform Get operations
 		{get, Arg2} ->
-			%io:fwrite("~p DictSize~n", [dict:size(FDict)]),
+			%io:fwrite("~p Dict~n", [FDict]),
 			Pos = string:chr(Arg2, $.),
 			Fad = string:substr(Arg2, 1, Pos-1),
 			%io:fwrite("~p FName~n", [Fad]),
-			Matches = fun(K, _) -> string:equal(string:substr(K, 1, string:chr(K, $_) - 1), Fad) end,
+			Matches = fun(K, _) -> string:slice(K, 0, string:length(K) - string:length(string:find(K, "_", trailing))) == Fad end,
 			TempDict = dict:filter(Matches, FDict),
 			FSize = dict:size(TempDict),
+			%io:fwrite("~p TempSize~n", [FSize]),
 			f_get(Fad, FSList, TempDict, FSize, 1),
 			%Spawn file_getter as a process, obtain pid to send to other functions
 			%Go through each file server, 
@@ -141,13 +142,12 @@ get(DirUAL, File) ->
 %Stores full string until it is ready to be written to a file
 fullFile(Content) ->
 	receive
-		{addContent, NewContent} -> fullFile(string:concat(Content, NewContent));
-		{getContent, FileName} -> saveFile(FileName, Content), fullFile("")
+		{addContent, NewContent} -> timer:sleep(50),fullFile(string:concat(Content, NewContent));
+		{getContent, FileName} -> timer:sleep(50),saveFile(FileName, Content), fullFile("")
 	end.
 
 f_get(FName, FSList, FDict, FNum, Index) ->
-	%io:fwrite("~p Index~n", [Index]),
-	%io:fwrite("~p FNum~n", [FNum]),
+	timer:sleep(500),
 	case Index < (FNum+1) of
 		true ->
 			S1 = string:concat(string:concat(FName, "_"), integer_to_list(Index)),
@@ -155,7 +155,7 @@ f_get(FName, FSList, FDict, FNum, Index) ->
 			FX ! {getChunk, S1},
 			f_get(FName, FSList, FDict, FNum, Index+1);
 		false ->
-			%io:fwrite("~p FName~n", [FName]),
+			timer:sleep(50),
 			whereis(ff) ! {getContent, string:concat("downloads/", string:concat(FName, ".txt"))}
 	end.
 
