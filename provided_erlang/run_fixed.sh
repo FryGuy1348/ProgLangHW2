@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
+
 # Compile code
 erlc main.erl util.erl
+
 # Run my program.
 input=$1
+
 files=()
 while IFS= read -r line
 do

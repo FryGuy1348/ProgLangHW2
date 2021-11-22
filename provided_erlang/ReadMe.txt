@@ -1,4 +1,4 @@
-Names: Ryan Hunt (huntr2) & Anthony Delgado (delgag2)
+Names: Ryan Hunt (huntr2) & Geremy Delgado (delgag2)
 Date to be submitted: 10/31/2021
 Homework #2: Distributed File Sharing
 Language - Erlang (OTP 24)

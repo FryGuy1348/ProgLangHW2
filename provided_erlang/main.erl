@@ -119,7 +119,8 @@ destroy_servers(FSList, Index, FNum) ->
 			list_to_pid(lists:nth(Index, FSList)) ! {q},
 			destroy_servers(FSList, Index+1, FNum);
 		false ->
-			pass
+			unregister(dr),
+			unregister(ff)
 	end.
 
 % requests file information from the Directory Service (DirUAL) on File
