@@ -17,16 +17,18 @@
 % when starting the Directory Service and File Servers, you will need
 % to register a process name and spawn a process in another node
 
+% {ds, ds@localhost} ! {message}
+
 % starts a directory service (and fullFile actor for get operations)
 start_dir_service() ->
 	Pid = spawn(node(), fun() -> dir_service_receiver([], 1, dict:new()) end),
-	register(dr, Pid),
+	register(ds, Pid),
 	Pid2 = spawn(node(), fun() -> fullFile("") end),
 	register(ff, Pid2).
 
 % starts a file server with the UAL of the Directory Service
 start_file_server(DirUAL) ->
-	whereis(dr) ! {addFile}.
+	{ds, DirUAL} ! {addFile}.
 
 %Directory service actor
 %LS - FileServer list
@@ -88,7 +90,9 @@ dir_service_receiver(LS, FNum, FDict) ->
 
 		%Send Quit command to all file servers
 		{q} ->
-			destroy_servers(FSList, 1, FNum)
+			destroy_servers(FSList, 1, FNum),
+			unregister(ds),
+			unregister(ff)
 	end.
 
 %Actor for file server
@@ -116,11 +120,12 @@ destroy_servers(FSList, Index, FNum) ->
 	Booler = Index < FNum,
 	case Booler of 
 		true ->
-			list_to_pid(lists:nth(Index, FSList)) ! {q},
+			FName = string:concat("fs", Index),
+			FName0 = string:concat(FName,"@localhost"),
+			{list_to_pid(lists:nth(Index, FSList)), FName0} ! {q},
 			destroy_servers(FSList, Index+1, FNum);
 		false ->
-			unregister(dr),
-			unregister(ff)
+			pass
 	end.
 
 % requests file information from the Directory Service (DirUAL) on File
@@ -128,7 +133,7 @@ destroy_servers(FSList, Index, FNum) ->
 % then combines the file and saves to downloads folder
 % Sends get command to directory service
 get(DirUAL, File) ->
-	whereis(dr) ! {get, File}.
+	{ds, DirUAL} ! {get, File}.
 
 %Stores full string until it is ready to be written to a file
 fullFile(Content) ->
@@ -148,7 +153,9 @@ f_get(FName, FSList, FDict, FNum, Index) ->
 		true ->
 			S1 = string:concat(string:concat(FName, "_"), integer_to_list(Index)),
 			FX = list_to_pid(lists:nth(dict:fetch(S1, FDict), FSList)),
-			FX ! {getChunk, S1},
+			FName01 = string:concat("fs", Index),
+			FName0 = string:concat(FName01,"@localhost"),
+			{FX, FName0} ! {getChunk, S1},
 			f_get(FName, FSList, FDict, FNum, Index+1);
 		false ->
 			timer:sleep(50),
@@ -157,7 +164,7 @@ f_get(FName, FSList, FDict, FNum, Index) ->
 
 % gives Directory Service (DirUAL) the name/contents of File to create
 create(DirUAL, File) ->
-	whereis(dr) ! {create, File}.
+	{ds, DirUAL} ! {create, File}.
 
 %Loop to create new file parts from input file
 %True - Step < # of characters, False - Greater/Equal
@@ -175,7 +182,7 @@ while(false, FileStuff, Fad, Step, Index, Len, FName, FSS, PNum) ->
 			FName4 = string:concat(FName3, Sv),
 			FName5 = string:concat(FName4, ".txt"),
 			util:saveFile(FName5, substr(FileStuff, Step-64, Step - (Step-64))),
-			whereis(dr) ! {addPart, string:concat(string:concat(Fad, "_"), Sv), substr(FileStuff, Step-64, Step - (Step-64)), Index};
+			whereis(ds) ! {addPart, string:concat(string:concat(Fad, "_"), Sv), substr(FileStuff, Step-64, Step - (Step-64)), Index};
 		false ->
 			FName0 = "servers/fs1",
 			FName1 = string:concat(FName0, "/"),
@@ -185,7 +192,7 @@ while(false, FileStuff, Fad, Step, Index, Len, FName, FSS, PNum) ->
 			FName4 = string:concat(FName3, Sv),
 			FName5 = string:concat(FName4, ".txt"),
 			util:saveFile(FName5, substr(FileStuff, Step-64, Step - (Step-64))),
-			whereis(dr) ! {addPart, string:concat(string:concat(Fad, "_"), Sv), substr(FileStuff, Step-64, Step - (Step-64)), 1}
+			whereis(ds) ! {addPart, string:concat(string:concat(Fad, "_"), Sv), substr(FileStuff, Step-64, Step - (Step-64)), 1}
 	end;
 %While loop if true
 while(true, FileStuff, Fad, Step, Index, Len, FName, FSS, PNum) ->
@@ -201,7 +208,7 @@ while(true, FileStuff, Fad, Step, Index, Len, FName, FSS, PNum) ->
 			FName4 = string:concat(FName3, Sv),
 			FName5 = string:concat(FName4, ".txt"),
 			util:saveFile(FName5, substr(FileStuff, Step-64, 64)),
-			whereis(dr) ! {addPart, string:concat(string:concat(Fad, "_"), Sv), substr(FileStuff, Step - 64, Step - (Step-64)), Index},
+			whereis(ds) ! {addPart, string:concat(string:concat(Fad, "_"), Sv), substr(FileStuff, Step - 64, Step - (Step-64)), Index},
 			while(Step+64 < Len, FileStuff, Fad, Step+64, Index+1, Len, string:concat("servers/fs",integer_to_list(Index+1)), FSS, PNum+1);
 		false ->
 			FName0 = "servers/fs1",
@@ -212,10 +219,10 @@ while(true, FileStuff, Fad, Step, Index, Len, FName, FSS, PNum) ->
 			FName4 = string:concat(FName3, Sv),
 			FName5 = string:concat(FName4, ".txt"),
 			util:saveFile(FName5, substr(FileStuff, Step-64, 64)),
-			whereis(dr) ! {addPart, string:concat(string:concat(Fad, "_"), Sv), substr(FileStuff, Step-64, Step - (Step-64)), 1},
+			whereis(ds) ! {addPart, string:concat(string:concat(Fad, "_"), Sv), substr(FileStuff, Step-64, Step - (Step-64)), 1},
 			while(Step+64 < Len, FileStuff, Fad, Step+64, 2, Len, "servers/fs2", FSS, PNum+1)
 	end.
 
 % sends shutdown message to the Directory Service (DirUAL)
 quit(DirUAL) ->
-	whereis(dr) ! {q}.
+	{ds, DirUAL} ! {q}.
